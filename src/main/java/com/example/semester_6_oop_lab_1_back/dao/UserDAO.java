@@ -97,12 +97,12 @@ public class UserDAO extends AbstractDAO {
         }
 
         List<User> users = new ArrayList<>();
-        String sql = "SELECT * FROM users WHERE name like '%'?'%'";
+        String sql = "SELECT * FROM users WHERE number like ?";
 
         try (Connection connection = getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
-            preparedStatement.setString(1, number);
+            preparedStatement.setString(1, "%" + number + "%");
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
                     User user = new User();
@@ -190,7 +190,7 @@ public class UserDAO extends AbstractDAO {
         final List<Integer> ids = users.stream().map(User::getId).collect(Collectors.toList());
         final List<UserDataDTO> result = new ArrayList<>();
 
-        users.forEach(user -> {
+        for (User user : users) {
             UserDataDTO userDataDTO = new UserDataDTO();
             userDataDTO.setId(user.getId());
             userDataDTO.setName(user.getName());
@@ -201,7 +201,7 @@ public class UserDAO extends AbstractDAO {
             userDataDTO.setConversations(conversationDAO.findByUserIds(ids));
             userDataDTO.setServices(userServiceDAO.findByUserIds(ids));
             result.add(userDataDTO);
-        });
+        }
 
         return result;
     }

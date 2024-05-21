@@ -18,32 +18,25 @@ public class UserServiceDAO extends AbstractDAO {
 
     private final ServiceDAO serviceDAO = new ServiceDAO();
 
-    public void save(int userId, List<Integer> serviceIds) {
-        serviceIds.forEach(serviceId -> {
-            String sql = "INSERT INTO users_services (user_id, services_id) VALUES (?, ?)";
-            try (Connection connection = getConnection();
-                 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-                preparedStatement.setDouble(1, userId);
-                preparedStatement.setDouble(2, serviceId);
-                preparedStatement.executeUpdate();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
     public List<ServicesDataDTO> findByUserIds(List<Integer> userIds) {
-        final Set<Integer> servicesIds = new HashSet<>();
+        final List<Integer> servicesIds = new ArrayList<>();
 
-        String sql = "SELECT * FROM users_services WHERE user_id in (?)";
-        String ids = userIds.stream().map(String::valueOf)
+        // Create a comma-separated list of placeholders
+        final String placeholders = userIds.stream()
+                .map(id -> "?")
                 .collect(Collectors.joining(","));
+
+        final String sql = "SELECT * FROM users_services WHERE user_id IN (" + placeholders + ")";
 
         try (Connection connection = getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            preparedStatement.setString(1, ids);
+            // Set each user ID in the PreparedStatement
+            for (int i = 0; i < userIds.size(); i++) {
+                preparedStatement.setInt(i + 1, userIds.get(i));
+            }
+
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
+                while (resultSet.next()) {
                     servicesIds.add(Integer.valueOf(resultSet.getString("services_id")));
                 }
             }

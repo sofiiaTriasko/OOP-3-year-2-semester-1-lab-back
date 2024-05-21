@@ -90,26 +90,4 @@ public class PaymentDAO extends AbstractDAO {
         boolean isPaid = sumToPay >= totalCost;
         update(paymentId, isPaid);
     }
-
-    public PaymentDataDTO findByIdData(int id) {
-        PaymentDataDTO payment = null;
-        String sql = "SELECT * FROM payments WHERE id = ?";
-        try (Connection connection = getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-
-            preparedStatement.setInt(1, id);
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    payment = new PaymentDataDTO();
-                    payment.setId(resultSet.getInt("id"));
-                    payment.setIsPaid(resultSet.getBoolean("is_paid"));
-                }
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return payment;
-    }
 }

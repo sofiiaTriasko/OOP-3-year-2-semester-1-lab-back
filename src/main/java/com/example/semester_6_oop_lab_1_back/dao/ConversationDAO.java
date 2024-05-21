@@ -1,6 +1,7 @@
 package com.example.semester_6_oop_lab_1_back.dao;
 
 import com.example.semester_6_oop_lab_1_back.dto.ConversationDataDTO;
+import com.example.semester_6_oop_lab_1_back.dto.PaymentDataDTO;
 import com.example.semester_6_oop_lab_1_back.model.Conversation;
 
 import java.sql.Connection;
@@ -13,7 +14,6 @@ import java.util.stream.Collectors;
 
 public class ConversationDAO extends AbstractDAO {
 
-    private final PaymentDAO paymentDAO = new PaymentDAO();
 
     public List<Conversation> findByPaymentId(int paymentId) {
         final List<Conversation> conversations = new ArrayList<>();
@@ -44,21 +44,27 @@ public class ConversationDAO extends AbstractDAO {
     public List<ConversationDataDTO> findByUserIds(List<Integer> userIds) {
         final List<Conversation> conversations = new ArrayList<>();
         final List<ConversationDataDTO> conversationDataDTOS = new ArrayList<>();
-        String ids = userIds.stream().map(String::valueOf)
+
+        // Create a comma-separated list of placeholders
+        final String placeholders = userIds.stream()
+                .map(id -> "?")
                 .collect(Collectors.joining(","));
-        String sql = "SELECT * FROM conversations WHERE user_id in (?)";
+
+        final String sql = "SELECT * FROM conversations WHERE user_id in (" + placeholders + ")";
 
         try (Connection connection = getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
-            preparedStatement.setString(1, ids);
+            for (int i = 0; i < userIds.size(); i++) {
+                preparedStatement.setInt(i + 1, userIds.get(i));
+            }
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
+                while (resultSet.next()) {
                     final Conversation conversation = new Conversation();
                     conversation.setId(resultSet.getInt("id"));
                     conversation.setUserId(resultSet.getInt("user_id"));
                     conversation.setPaymentId(resultSet.getInt("payment_id"));
-                    conversation.setPriceByMinute(resultSet.getDouble("price_by_minute"));
+                    conversation.setPriceByMinute(resultSet.getDouble("price_by_minutes"));
                     conversation.setMinutes(resultSet.getLong("minutes"));
                     conversations.add(conversation);
                 }
@@ -67,15 +73,37 @@ public class ConversationDAO extends AbstractDAO {
             e.printStackTrace();
         }
 
-        conversations.forEach(conversation -> {
+        for (Conversation conversation : conversations) {
             ConversationDataDTO conversationDataDTO = new ConversationDataDTO();
             conversationDataDTO.setId(conversation.getId());
             conversationDataDTO.setPriceByMinute(conversationDataDTO.getPriceByMinute());
             conversationDataDTO.setMinutes(conversationDataDTO.getMinutes());
-            conversationDataDTO.setPayment(paymentDAO.findByIdData(conversation.getPaymentId()));
+            conversationDataDTO.setPayment(findByIdData(conversation.getPaymentId()));
             conversationDataDTOS.add(conversationDataDTO);
-        });
+        }
 
         return conversationDataDTOS;
+    }
+
+    private PaymentDataDTO findByIdData(int id) {
+        PaymentDataDTO payment = null;
+        String sql = "SELECT * FROM payments WHERE id = ?";
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            preparedStatement.setInt(1, id);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    payment = new PaymentDataDTO();
+                    payment.setId(resultSet.getInt("id"));
+                    payment.setIsPaid(resultSet.getBoolean("is_paid"));
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return payment;
     }
 }

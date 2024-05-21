@@ -1,5 +1,6 @@
 package com.example.semester_6_oop_lab_1_back.dao;
 
+import com.example.semester_6_oop_lab_1_back.dto.PaymentDataDTO;
 import com.example.semester_6_oop_lab_1_back.dto.ServicesDataDTO;
 import com.example.semester_6_oop_lab_1_back.model.Services;
 
@@ -15,9 +16,6 @@ import java.util.stream.Collectors;
 import static com.example.semester_6_oop_lab_1_back.dao.AbstractDAO.getConnection;
 
 public class ServiceDAO {
-
-    private final UserServiceDAO userServiceDAO = new UserServiceDAO();
-    private final PaymentDAO paymentDAO = new PaymentDAO();
 
     public List<Services> findAllServices() {
         final List<Services> services = new ArrayList<>();
@@ -63,35 +61,73 @@ public class ServiceDAO {
     }
 
     public void subscribeService(int userId, List<Integer> serviceIds) {
-        userServiceDAO.save(userId, serviceIds);
+        serviceIds.forEach(serviceId -> {
+            String sql = "INSERT INTO users_services (user_id, services_id) VALUES (?, ?)";
+            try (Connection connection = getConnection();
+                 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+                preparedStatement.setDouble(1, userId);
+                preparedStatement.setDouble(2, serviceId);
+                preparedStatement.executeUpdate();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
-    public List<ServicesDataDTO> findByIdInData(Set<Integer> servicesIds) {
+    public List<ServicesDataDTO> findByIdInData(List<Integer> servicesIds) {
         final List<Services> services = new ArrayList<>();
         final List<ServicesDataDTO> servicesData = new ArrayList<>();
-        String ids = servicesIds.stream().map(String::valueOf)
+
+        // Create a comma-separated list of placeholders
+        final String placeholders = servicesIds.stream()
+                .map(id -> "?")
                 .collect(Collectors.joining(","));
-        String sql = "SELECT * FROM services WHERE id in (?)";
+
+        String sql = "SELECT * FROM services WHERE id in (" + placeholders + ")";
 
         try (Connection connection = getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
-            preparedStatement.setString(1, ids);
+            for (int i = 0; i < servicesIds.size(); i++) {
+                preparedStatement.setInt(i + 1, servicesIds.get(i));
+            }
             handleService(services, preparedStatement);
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        services.forEach(service -> {
+        for (Services service : services) {
             ServicesDataDTO servicesDataDTO = new ServicesDataDTO();
             servicesDataDTO.setId(service.getId());
             servicesDataDTO.setName(service.getName());
             servicesDataDTO.setPrice(service.getPrice());
-            servicesDataDTO.setPaymentDataDTO(paymentDAO.findByIdData(service.getPaymentId()));
+            servicesDataDTO.setPaymentDataDTO(findByIdData(service.getPaymentId()));
             servicesData.add(servicesDataDTO);
-        });
+        }
 
         return servicesData;
+    }
+
+    private PaymentDataDTO findByIdData(int id) {
+        PaymentDataDTO payment = null;
+        String sql = "SELECT * FROM payments WHERE id = ?";
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            preparedStatement.setInt(1, id);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    payment = new PaymentDataDTO();
+                    payment.setId(resultSet.getInt("id"));
+                    payment.setIsPaid(resultSet.getBoolean("is_paid"));
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return payment;
     }
 }
